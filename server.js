@@ -10,6 +10,7 @@ const port  = 8080;
 const requestsuccess = 200;
 const requestforbidden = 403;
 const requestbad = 400;
+const requestnotfound = 404;
 
 //***************INITIALIZATION*************//
 
@@ -101,7 +102,45 @@ app.get('/api/min_version', function(req, res){
         
 });
 
-app.get('/api/user', function(req, res){
+//get activities posted 
+app.get('/api/activities', function(req, res){
+    var token = req.query.token;
+    if(!authenticateToken(token)){
+        res.status(requestforbidden).send("token could not be authenticated");
+        return;
+    }
+    
+    var school = req.query.domain;
+    if(!school){
+        res.status(requestbad).send("invalid parameters");
+        return;
+    }
+    
+    if(!domainAllowed(school)){
+        res.status(requestbad).send("domain '" + school + "' is not allowed");
+        return;
+    }
+    
+    var now = new Date().getTime / 1000;
+    var day = 24 * secondsinhr;
+    var postsinlastday = now - day;
+    
+    var activities = [];
+    
+    databaseref.child(school).child('activities')
+        .once('value').then(function(snapshot){
+            activities = snapshot.val();
+        })
+        .then(() => res.status(requestsuccess).send(activities))
+        .catch(function(error){
+            res.status(400).send(error);
+            console.log(error);
+    });
+    
+});
+
+//get user information from a uid.  ex: .../api/user_info?uid=udfan48thbg84t48
+app.get('/api/user_info', function(req, res){
     var token = req.query.token;
     if(!authenticateToken(token)){
         res.status(requestforbidden).send("token could not be authenticated");
@@ -109,19 +148,42 @@ app.get('/api/user', function(req, res){
     }
     
     var uid = req.query.uid;
-    if(uid == undefined){
-        res.status(requestbad).send("invalid parameters");
+    if(!uid){
+        res.status(requestbad).send("invalid parameters: no uid");
+        return;
     }
     
-    databaseref.child('users/' + uid).once('value').then(function(snapshot){
-        console.log(snapshot.val());
+    var school = req.query.domain;
+    if(!school){
+        res.status(requestbad).send("invalid parameters: no domain");
+        return;
+    }
+    
+    if(!domainAllowed(school)){
+        res.status(requestbad).send("domain '" + school + "' is not allowed");
+        return;
+    }
+    
+    var user = {};
+    
+    databaseref.child(school).child('users/' + uid).once('value').then(function(snapshot){
+        user = snapshot.val();
+    }).then(function(){
+        if(user == undefined) res.status(requestnotfound).send("user not found");
+        else res.status(requestsuccess).send(user);
     }).catch(function(error){
+        res.status(400).send(error);
         console.log(error);
     })
 });
 
-databaseref.child('activities').once('value').then(function(snapshot){
-    snapshot.forEach(person => console.log(person.val()));
-}).catch(function(error){
-        console.log(error);
-});
+
+//***************HELPER FUNCTIONS*************//
+
+function domainAllowed(domain){
+    for(key in domains){
+        if(key == domain) return true;
+    }
+    
+    return false;
+}
