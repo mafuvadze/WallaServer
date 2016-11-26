@@ -2,8 +2,8 @@ var express = require('express'); //npm install express --save
 var firebase = require('firebase'); //npm install firebase --save
 var admin = require('firebase-admin'); //npm install firebase-admin --save
 var TokenGenerator = require( 'token-generator' )({
-        salt: 'the key to success is to be successful',
-        timestampMap: 'N-2m94X-F8', // 10 chars array for obfuscation proposes 
+        salt: 'the key to success is to be successful, but only sometimes',
+        timestampMap: 'N-2md4X-F8', // 10 chars array for obfuscation proposes 
 });
 
 //***************CONSTANTS*************//
@@ -90,6 +90,12 @@ mv.on('value', snapshot => minversion = snapshot.val());
 const at = databaseref.child('api');
 at.on('value', snapshot => {
     var auth = snapshot.val();
+    
+    readpriv = [];
+    writepriv = [];
+    deletepriv = [];
+    adminpriv = [];
+    
     for(key in auth){
         if(auth[key] & level1) readpriv.push(key);
         if(auth[key] & level2) writepriv.push(key);
@@ -250,7 +256,6 @@ app.get('/api/generate_token', function(req, res){
     auth = a == 0 ? auth : auth | level4;
     
     var token = TokenGenerator.generate();
-    console.log('token generated ' + token);
     
     var authobj = {};
     authobj[token] = auth;
