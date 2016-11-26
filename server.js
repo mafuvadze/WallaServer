@@ -1,6 +1,10 @@
 var express = require('express'); //npm install express --save
 var firebase = require('firebase'); //npm install firebase --save
 var admin = require('firebase-admin'); //npm install firebase-admin --save
+var TokenGenerator = require( 'token-generator' )({
+        salt: 'the key to success is to be successful',
+        timestampMap: 'N-2m94X-F8', // 10 chars array for obfuscation proposes 
+});
 
 //***************CONSTANTS*************//
 
@@ -11,6 +15,11 @@ const requestsuccess = 200;
 const requestforbidden = 403;
 const requestbad = 400;
 const requestnotfound = 404;
+
+const level1 = 1; //read
+const level2 = 2; //write
+const level3 = 4; //delete
+const level4 = 8; //admin
 
 //***************INITIALIZATION*************//
 
@@ -24,6 +33,11 @@ app.listen(port, function(){
 //all the stored variables
 var domains = {};
 var minversion = {};
+
+var readpriv = []; 
+var writepriv = [];
+var deletepriv = [];
+var adminpriv = [];
 
 
 
@@ -48,8 +62,18 @@ var database = defaultApp.database();
 var databaseref = database.ref();
 
 function authenticateToken(token){
-    //add authentication later. rn just return true
-    return true;
+    var auth;
+    
+    if(!token){
+        auth = 0;
+    }else{
+        auth = getAuth(token);
+    }
+    
+    return {'read': auth & level1,
+                'write': auth & level2,
+                'delete': auth & level3,
+                'admin': auth & level4};   
 }
 
 
@@ -63,13 +87,27 @@ ad.on('value', snapshot => domains = snapshot.val());
 const mv = databaseref.child('minimumVersion');
 mv.on('value', snapshot => minversion = snapshot.val());
 
+const at = databaseref.child('api');
+at.on('value', snapshot => {
+    var auth = snapshot.val();
+    for(key in auth){
+        if(auth[key] & level1) readpriv.push(key);
+        if(auth[key] & level2) writepriv.push(key);
+        if(auth[key] & level3) deletepriv.push(key);
+        if(auth[key] & level4) adminpriv.push(key);
+    }
+})
+
 
 //***************GET REQUEST HANDLERS*************//
 
+//0001 - requires read rights
 app.get('/api/domains', function(req, res){
     var token = req.query.token;
-    if(!authenticateToken(token)){
-        res.status(requestforbidden).send("token could not be authenticated");
+    
+    var auth = authenticateToken(token);
+    if(!auth.read && !auth.admin){
+         res.status(requestforbidden).send("token could not be authenticated");
         return;
     }
     
@@ -78,10 +116,13 @@ app.get('/api/domains', function(req, res){
 });
 
 //.../api/min_version?platform=android
+//0001 - requires read rights
 app.get('/api/min_version', function(req, res){
     var token = req.query.token;
-    if(!authenticateToken(token)){
-        res.status(requestforbidden).send("token could not be authenticated");
+    
+    var auth = authenticateToken(token);
+    if(!auth.read && !auth.admin){
+         res.status(requestforbidden).send("token could not be authenticated");
         return;
     }
     
@@ -103,10 +144,13 @@ app.get('/api/min_version', function(req, res){
 });
 
 //get activities posted 
+//0001 - requires read rights
 app.get('/api/activities', function(req, res){
     var token = req.query.token;
-    if(!authenticateToken(token)){
-        res.status(requestforbidden).send("token could not be authenticated");
+    
+    var auth = authenticateToken(token);
+    if(!auth.read && !auth.admin){
+         res.status(requestforbidden).send("token could not be authenticated");
         return;
     }
     
@@ -140,10 +184,13 @@ app.get('/api/activities', function(req, res){
 });
 
 //get user information from a uid.  ex: .../api/user_info?uid=udfan48thbg84t48
+//0001 - requires read rights 
 app.get('/api/user_info', function(req, res){
     var token = req.query.token;
-    if(!authenticateToken(token)){
-        res.status(requestforbidden).send("token could not be authenticated");
+    
+    var auth = authenticateToken(token);
+    if(!auth.read && !auth.admin){
+         res.status(requestforbidden).send("token could not be authenticated");
         return;
     }
     
@@ -177,6 +224,41 @@ app.get('/api/user_info', function(req, res){
     })
 });
 
+app.get('/api/generate_token', function(req, res){
+    var token = req.query.token;
+    
+    var auth = authenticateToken(token);
+    if(!auth.admin){
+         res.status(requestforbidden).send("token could not be authenticated");
+        return;
+    }
+    
+    var r = req.query.read;
+    var w = req.query.write;
+    var d = req.query.delete;
+    var a = req.query.admin;
+    
+    if(!r || !w || !d || !a){
+        res.status(requestbad).send("invalid parameters");
+        return;
+    }
+    
+    var auth = 0;
+    auth = r == 0 ? auth : auth | level1;
+    auth = w == 0 ? auth : auth | level2;
+    auth = d == 0 ? auth : auth | level3;
+    auth = a == 0 ? auth : auth | level4;
+    
+    var token = TokenGenerator.generate();
+    console.log('token generated ' + token);
+    
+    var authobj = {};
+    authobj[token] = auth;
+    databaseref.child('api').update(authobj);
+    
+    res.status(requestsuccess).send(token);
+    
+});
 
 //***************HELPER FUNCTIONS*************//
 
@@ -186,4 +268,25 @@ function domainAllowed(domain){
     }
     
     return false;
+}
+
+function getAuth(token){
+    var auth = 0;
+    if(readpriv.indexOf(token) >= 0){
+        auth = auth | level1;
+    }
+    
+    if(writepriv.indexOf(token) >= 0){
+        auth = auth | level2;
+    }
+    
+    if(deletepriv.indexOf(token) >= 0){
+        auth = auth | level3;
+    }
+    
+    if(adminpriv.indexOf(token) >= 0){
+        auth = auth | level4;
+    }
+    
+    return auth;
 }
