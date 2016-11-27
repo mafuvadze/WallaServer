@@ -5,6 +5,7 @@ var TokenGenerator = require( 'token-generator' )({
         salt: 'the key to success is to be successful, but only sometimes',
         timestampMap: 'N-2md4X-F8', // 10 chars array for obfuscation proposes 
 });
+var nodemailer = require('nodemailer'); //npm install nodemailer --save
 
 //***************CONSTANTS*************//
 
@@ -28,6 +29,15 @@ var app = express();
 //create a listener for the server
 app.listen(port, function(){
     console.log('listening on port ' + port);
+});
+
+//setup for email
+var transporter = nodemailer.createTransport({
+        service: 'Aol',
+        auth: {
+            user: 'wallaapitesting@aol.com', // Your email id
+            pass: 'nodemailer' // Your password
+        }
 });
 
 //all the stored variables
@@ -97,10 +107,10 @@ at.on('value', snapshot => {
     adminpriv = [];
     
     for(key in auth){
-        if(auth[key] & level1) readpriv.push(key);
-        if(auth[key] & level2) writepriv.push(key);
-        if(auth[key] & level3) deletepriv.push(key);
-        if(auth[key] & level4) adminpriv.push(key);
+        if(auth[key].auth & level1) readpriv.push(key);
+        if(auth[key].auth & level2) writepriv.push(key);
+        if(auth[key].auth & level3) deletepriv.push(key);
+        if(auth[key].auth & level4) adminpriv.push(key);
     }
 })
 
@@ -139,6 +149,8 @@ app.get('/api/min_version', function(req, res){
         return;
     }
     
+    incrementTokenCalls(token);
+    
     switch(platform.toLowerCase()){
         case 'android': res.send({'min_version': minversion.Android});
             break;
@@ -176,6 +188,7 @@ app.get('/api/activities', function(req, res){
     var postsinlastday = now - day;
     
     var activities = [];
+    incrementTokenCalls(token);
     
     databaseref.child(school).child('activities')
         .once('value').then(function(snapshot){
@@ -218,19 +231,19 @@ app.get('/api/user_info', function(req, res){
     }
     
     var user = {};
+    incrementTokenCalls(token);
     
     databaseref.child(school).child('users/' + uid).once('value').then(function(snapshot){
         user = snapshot.val();
-    }).then(function(){
-        if(user == undefined) res.status(requestnotfound).send("user not found");
+        if(!user || user == {}) res.status(requestnotfound).send("user not found");
         else res.status(requestsuccess).send(user);
     }).catch(function(error){
-        res.status(400).send(error);
-        console.log(error);
+        return;
     })
+
 });
 
-app.get('/api/generate_token', function(req, res){
+app.post('/api/generate_token', function(req, res){
     var token = req.query.token;
     
     var auth = authenticateToken(token);
@@ -239,10 +252,23 @@ app.get('/api/generate_token', function(req, res){
         return;
     }
     
-    var r = req.query.read;
-    var w = req.query.write;
-    var d = req.query.delete;
-    var a = req.query.admin;
+    var owner = req.query.owner;
+    var email = req.query.email;
+    
+    if(!owner){
+        res.status(requestbad).send("invalid parameters: no owner");
+        return;
+    }
+    
+    if(!email){
+        res.status(requestbad).send("invalid parameters: no email");
+        return;
+    }
+    
+    var r = req.query.r;
+    var w = req.query.w;
+    var d = req.query.d;
+    var a = req.query.a;
     
     if(!r || !w || !d || !a){
         res.status(requestbad).send("invalid parameters");
@@ -258,12 +284,27 @@ app.get('/api/generate_token', function(req, res){
     var token = TokenGenerator.generate();
     
     var authobj = {};
-    authobj[token] = auth;
+    authobj[token] = {owner: owner,
+                      email: email,
+                      auth: auth,
+                      calls: 0,
+                     };
+    
+    incrementTokenCalls(token);
     databaseref.child('api').update(authobj);
     
-    res.status(requestsuccess).send(token);
+    var permissions = [];
+    if(auth & level1) permissions.push('read');
+    if(auth & level2) permissions.push('write');
+    if(auth & level3) permissions.push('delete');
+    if(auth & level4) permissions.push('admin');
+        
+    
+    sendTokenViaEmail(token, email, owner, permissions);
+    res.status(requestsuccess).send("email sent");
     
 });
+
 
 //***************HELPER FUNCTIONS*************//
 
@@ -295,3 +336,48 @@ function getAuth(token){
     
     return auth;
 }
+
+function getUserInfo(uid, domain){
+    if(!domainAllowed(domain)){
+        res.status(requestbad).send("domain '" + school + "' is not allowed");
+        return;
+    }
+    
+    var user = {};
+    
+    databaseref.child(domain).child('users/' + uid).once('value').then(function(snapshot){
+        user = snapshot.val();
+    }).then(function(){
+        return user;
+    }).catch(function(error){
+        return {};
+    })
+}
+
+function incrementTokenCalls(token){
+    databaseref.child('api/' + token).child('calls').transaction(function(snapshot) {
+            if (snapshot) {
+                snapshot = snapshot + 1;
+            }
+            return snapshot;
+    });
+}
+
+function sendTokenViaEmail(token, email, name, auth){
+    var mailOptions = {
+        from: '"Walla API" <wallaapitesting@aol.com>', // sender address
+        to: email, // list of receivers
+        subject: 'Walla API', // Subject line
+        text: 'Hello', // plaintext body
+        html: '<b>' + 'Hello ' + name + '. Your API key is ' + token + '\n Permissions: ' + auth + '</b>' // html body
+    };
+    
+    transporter.sendMail(mailOptions, function(error, info){
+    if(error){
+        return console.log(error);
+    }
+    console.log('Message sent: ' + info.response);
+});
+}
+
+                                                                 
