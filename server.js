@@ -205,6 +205,49 @@ app.get('/api/activities', function(req, res){
     
 });
 
+app.get('/api/attendees', function(req, res){
+    var token = req.query.token;
+    
+    var auth = authenticateToken(token);
+    if(!auth.read && !auth.admin){
+         res.status(requestforbidden).send("token could not be authenticated");
+        return;
+    }
+    
+    var school = req.query.domain;
+    if(!school){
+        res.status(requestbad).send("invalid parameters: no domain");
+        return;
+    }
+    
+    if(!domainAllowed(school)){
+        res.status(requestbad).send("domain '" + school + "' is not allowed");
+        return;
+    }
+    
+    var event = req.query.key;
+    if(!event){
+         res.status(requestbad).send("invalid parameters: no event key");
+        return;
+    }
+    
+    databaseref.child(school).child('attendees').child(event).once('value')
+        .then(function(snapshot){
+            var att = snapshot.val();
+            var list = [];
+            
+            var len = Object.keys(att).length;
+            var count = 1;
+        
+            for(key in att){
+                getUserInfo(key, school, res, count, len);
+                count++;
+            }
+              
+        }).catch(error => console.log(error));
+    
+});
+
 //get user information from a uid.  ex: .../api/user_info?uid=udfan48thbg84t48
 //0001 - requires read rights 
 app.get('/api/user_info', function(req, res){
@@ -341,20 +384,15 @@ function getAuth(token){
     return auth;
 }
 
-function getUserInfo(uid, domain){
-    if(!domainAllowed(domain)){
-        res.status(requestbad).send("domain '" + school + "' is not allowed");
-        return;
-    }
-    
+function getUserInfo(uid, domain, res, count, total){
     var user = {};
     
     databaseref.child(domain).child('users/' + uid).once('value').then(function(snapshot){
         user = snapshot.val();
-    }).then(function(){
-        return user;
+        storeUsers(user, res, count == total);
+        console.log('called');
     }).catch(function(error){
-        return {};
+        return null;
     })
 }
 
@@ -377,11 +415,17 @@ function sendTokenViaEmail(token, email, name, auth){
     };
     
     transporter.sendMail(mailOptions, function(error, info){
-    if(error){
-        return console.log(error);
-    }
-    console.log('Message sent: ' + info.response);
-});
+        if(error){
+            return console.log(error);
+        }
+        console.log('Message sent: ' + info.response);
+    });
+}
+
+list = [];
+function storeUsers(user, res, finished){
+    list.push(user);
+    if(finished) res.status(requestsuccess).send(list);
 }
 
                                                                  
