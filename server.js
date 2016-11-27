@@ -233,16 +233,13 @@ app.get('/api/attendees', function(req, res){
     
     databaseref.child(school).child('attendees').child(event).once('value')
         .then(function(snapshot){
-            var att = snapshot.val();
             var list = [];
-            
-            var len = Object.keys(att).length;
-            var count = 1;
-        
-            for(key in att){
-                getUserInfo(key, school, res, count, len);
-                count++;
+            var att = snapshot.val();
+            for(uid in att){
+                list.push(uid);
             }
+        
+            res.status(requestsuccess).send(list);
               
         }).catch(error => console.log(error));
     
@@ -352,6 +349,56 @@ app.post('/api/generate_token', function(req, res){
     
 });
 
+app.get('/api/is_attending', function(req, res){
+    var token = req.query.token;
+    
+    var auth = authenticateToken(token);
+    if(!auth.admin){
+         res.status(requestforbidden).send("token could not be authenticated");
+        return;
+    }
+    
+    var uid = req.query.uid;
+    if(!uid){
+        res.status(requestbad).send("invalid parameters: no uid");
+        return;
+    }
+    
+    var school = req.query.domain;
+    if(!school){
+        res.status(requestbad).send("invalid parameters: no domain");
+        return;
+    }
+    
+    var event = req.query.key;
+    if(!school){
+        res.status(requestbad).send("invalid parameters: no domain");
+        return;
+    }
+    
+     databaseref.child(school).child('attendees').child(event).once('value')
+        .then(function(snapshot){
+            var att = snapshot.val();
+            var ret = {};
+            ret.event = event;
+         
+            for(user in att){
+                if(uid == user){
+                    ret.attending = true;
+                    res.status(requestsuccess).send(ret);
+                    return;
+                }
+            }
+        
+            ret.attending = false;
+            res.status(requestsuccess).send(ret);
+              
+        }).catch(error => res.status(requestbad).send('error retrieving data'));
+    
+});
+
+
+
 
 //***************HELPER FUNCTIONS*************//
 
@@ -384,13 +431,12 @@ function getAuth(token){
     return auth;
 }
 
-function getUserInfo(uid, domain, res, count, total){
+function getUserInfo(uid, domain){
     var user = {};
     
     databaseref.child(domain).child('users/' + uid).once('value').then(function(snapshot){
         user = snapshot.val();
-        storeUsers(user, res, count == total);
-        console.log('called');
+        return user;
     }).catch(function(error){
         return null;
     })
@@ -420,12 +466,6 @@ function sendTokenViaEmail(token, email, name, auth){
         }
         console.log('Message sent: ' + info.response);
     });
-}
-
-list = [];
-function storeUsers(user, res, finished){
-    list.push(user);
-    if(finished) res.status(requestsuccess).send(list);
 }
 
                                                                  
