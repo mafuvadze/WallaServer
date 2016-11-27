@@ -183,14 +183,17 @@ app.get('/api/activities', function(req, res){
         return;
     }
     
-    var now = new Date().getTime / 1000;
+    var now = new Date().getTime() / 1000;
     var day = 24 * secondsinhr;
     var postsinlastday = now - day;
-    
+        
     var activities = [];
     incrementTokenCalls(token);
     
-    databaseref.child(school).child('activities')
+    var act = databaseref.child(school);
+    if(school == 'duke-*-edu') act = databaseref;
+    
+    act.child('activities').orderByChild('activityTime').startAt(postsinlastday)
         .once('value').then(function(snapshot){
             activities = snapshot.val();
         })
