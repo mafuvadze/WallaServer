@@ -281,6 +281,8 @@ app.post('/api/generate_token', function(req, res){
     auth = d == 0 ? auth : auth | level3;
     auth = a == 0 ? auth : auth | level4;
     
+    incrementTokenCalls(token);
+    
     var token = TokenGenerator.generate();
     
     var authobj = {};
@@ -290,7 +292,6 @@ app.post('/api/generate_token', function(req, res){
                       calls: 0,
                      };
     
-    incrementTokenCalls(token);
     databaseref.child('api').update(authobj);
     
     var permissions = [];
