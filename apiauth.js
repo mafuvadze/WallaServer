@@ -1,6 +1,6 @@
 //different api auth levels
-var level1 = 1; //read
-var level2 = 2; //write
-var level3 = 4; //delete
-var level4 = 8; //admin
+var LEVEL1 = 1; //read
+var LEVEL2 = 2; //write
+var LEVEL3 = 4; //delete
+var LEVEL4 = 8; //admin
 
