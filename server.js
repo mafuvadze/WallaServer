@@ -3,9 +3,10 @@ var firebase = require('firebase'); //npm install firebase --save
 var admin = require('firebase-admin'); //npm install firebase-admin --save
 var TokenGenerator = require( 'token-generator' )({
         salt: 'the key to success is to be successful, but only sometimes',
-        timestampMap: 'N-2md4X-F8', // 10 chars array for obfuscation proposes 
+        timestampMap: 'N72md4XaF8', // 10 chars array for obfuscation proposes 
 });
 var nodemailer = require('nodemailer'); //npm install nodemailer --save
+var fs = require('fs');
 
 //***************CONSTANTS*************//
 
@@ -22,10 +23,13 @@ const LEVEL1 = 1; //read
 const LEVEL2 = 2; //write
 const LEVEL3 = 4; //delete
 const LEVEL4 = 8; //admin
+const LEVEL5 = 16; //verify
 
 const MAXFLAGS = 2;
 
 const FLAGREPORTEMAIL = 'hollawalladuke@gmail.com';
+const WEBSITE = 'http://localhost:8080';
+
 
 //***************INITIALIZATION*************//
 
@@ -53,8 +57,10 @@ var readpriv = [];
 var writepriv = [];
 var deletepriv = [];
 var adminpriv = [];
+var verifypriv = [];
 
-
+var emailverificationtemplate;
+var apikeytemplate;
 
 //***************AUTHENTICATION*************//
 
@@ -86,9 +92,11 @@ function authenticateToken(token){
     }
     
     return {'read': auth & LEVEL1,
-                'write': auth & LEVEL2,
-                'delete': auth & LEVEL3,
-                'admin': auth & LEVEL4};   
+        'write': auth & LEVEL2,
+        'delete': auth & LEVEL3,
+        'admin': auth & LEVEL4,
+        'verify': auth & LEVEL5
+    };   
 }
 
 
@@ -110,14 +118,22 @@ at.on('value', snapshot => {
     writepriv = [];
     deletepriv = [];
     adminpriv = [];
+    verifypriv = [];
     
     for(key in auth){
         if(auth[key].auth & LEVEL1) readpriv.push(key);
         if(auth[key].auth & LEVEL2) writepriv.push(key);
         if(auth[key].auth & LEVEL3) deletepriv.push(key);
         if(auth[key].auth & LEVEL4) adminpriv.push(key);
+        if(auth[key].auth & LEVEL5) verifypriv.push(key);
     }
-})
+});
+
+const evl = databaseref.child('templates').child('emailverification');
+evl.on('value', snapshot => emailverificationtemplate = snapshot.val().template);
+
+const akt = databaseref.child('templates').child('apikey');
+akt.on('value', snapshot => apikeytemplate = snapshot.val().template);
 
 
 //***************GET REQUEST HANDLERS*************//
@@ -317,8 +333,9 @@ app.post('/api/generate_token', function(req, res){
     var w = req.query.w;
     var d = req.query.d;
     var a = req.query.a;
+    var v = req.query.v;
     
-    if(!r || !w || !d || !a){
+    if(!r || !w || !d || !a || !v){ 
         res.status(REQUESTBAD).send("invalid parameters");
         return;
     }
@@ -328,6 +345,7 @@ app.post('/api/generate_token', function(req, res){
     auth = w == 0 ? auth : auth | LEVEL2;
     auth = d == 0 ? auth : auth | LEVEL3;
     auth = a == 0 ? auth : auth | LEVEL4;
+    auth = v == 0 ? auth : auth | LEVEL5;
     
     incrementTokenCalls(token);
     
@@ -347,6 +365,7 @@ app.post('/api/generate_token', function(req, res){
     if(auth & LEVEL2) permissions.push('write');
     if(auth & LEVEL3) permissions.push('delete');
     if(auth & LEVEL4) permissions.push('admin');
+    if(auth & LEVEL5) permissions.push('verify');
         
     
     sendTokenViaEmail(token, email, owner, permissions);
@@ -435,6 +454,75 @@ app.post('/api/report_post', function(req, res){
 });
 
 
+app.get('/api/request_verification', function(req, res){
+    var token = req.query.token;
+    
+    var auth = authenticateToken(token);
+    if(!auth.admin && !auth.write){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+    
+    var school = req.query.domain;
+    if(!school){
+        res.status(REQUESTBAD).send("invalid parameters: no domain");
+        return;
+    }
+    
+    
+    var email = req.query.email;
+    if(!email){
+        res.status(REQUESTBAD).send("invalid parameters: no email");
+        return;
+    }
+    
+    var uid = req.query.uid;
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+    
+    sendVerificationEmail(email, uid, school, res);
+});
+
+app.get('/api/verify', function(req, res){
+    var token = req.query.token;
+    
+    var auth = authenticateToken(token);
+    if(!auth.verify){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+    
+      var school = req.query.domain;
+    if(!school){
+        res.status(REQUESTBAD).send("invalid parameters: no domain");
+        return;
+    }
+    
+    var uid = req.query.uid;
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+    
+    var hash = req.query.hash;
+    if(!hash){
+        res.status(REQUESTBAD).send("invalid parameters: no hash");
+        return;
+    }
+   verifyUser(school, uid, hash, res); 
+    
+});
+
+app.get('/welcome', function(req, res){
+    fs.readFile('emailverification.html', function (err, data){
+        res.writeHead(200, {'Content-Type': 'text/html','Content-Length':data.length});
+        res.write(data);
+        res.end();
+    });
+});
+
 
 
 //***************HELPER FUNCTIONS*************//
@@ -445,6 +533,28 @@ function domainAllowed(domain){
     }
     
     return false;
+}
+    
+function verifyUser(school, uid, hash, res){
+    databaseref.child(school).child('users').child(uid).once('value').then(function(snapshot){
+        var user = snapshot.val();
+        if(user){
+            var userhash = user.hash;
+            if(userhash || user.verified == true){
+                if(userhash == hash || user.verified == true){
+                    databaseref.child(school).child('users').child(uid).child('verified').set(true);
+                    databaseref.child(school).child('users').child(uid).child('hash').remove();
+                    res.redirect('/welcome');
+                }else{
+                    res.status(REQUESTFORBIDDEN).send('could not authenticate request');
+                }
+            }else{
+                res.status(REQUESTFORBIDDEN).send('could not authenticate request');
+            }
+        }else{
+            res.status(REQUESTNOTFOUND).send('user not found');
+        }
+    });
 }
 
 function findPostToReport(uid, key, domain, res){
@@ -554,6 +664,10 @@ function getAuth(token){
         auth = auth | LEVEL4;
     }
     
+     if(verifypriv.indexOf(token) >= 0){
+        auth = auth | LEVEL5;
+    }
+    
     return auth;
 }
 
@@ -578,12 +692,18 @@ function incrementTokenCalls(token){
 }
 
 function sendTokenViaEmail(token, email, name, auth){
+    var permissions = '';
+    if(auth.indexOf('read') >= 0) permissions += '<li>' + ' <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; Margin-bottom: 5px;">Read</p>' + '</li>';
+    if(auth.indexOf('write') >= 0) permissions += '<li>' + ' <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; Margin-bottom: 5px;">Write</p>' + '</li>';
+    if(auth.indexOf('delete') >= 0) permissions += '<li>' + ' <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; Margin-bottom: 5px;">Delete</p>' + '</li>';
+    if(auth.indexOf('admin') >= 0) permissions += '<li>' + ' <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; Margin-bottom: 5px;">Admin</p>' + '</li>';
+    if(auth.indexOf('verify') >= 0) permissions += '<li>' + ' <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; Margin-bottom: 5px;">Verify</p>' + '</li>';
+    
     var mailOptions = {
         from: '"Walla API" <wallaapitesting@aol.com>', // sender address
         to: email, // list of receivers
         subject: 'Walla API', // Subject line
-        text: 'Hello', // plaintext body
-        html: '<b>' + 'Hello ' + name + '. Your API key is ' + token + '\n Permissions: ' + auth + '</b>' // html body
+        html: apikeytemplate.replace(/permissions-go-here/, permissions).replace(/name-goes-here/, name).replace(/token-goes-here/, token)
     };
     
     transporter.sendMail(mailOptions, function(error, info){
@@ -594,4 +714,39 @@ function sendTokenViaEmail(token, email, name, auth){
     });
 }
 
-                                                                 
+function sendVerificationEmail(email, uid, domain, res){
+    if(!emailverificationtemplate){
+        setTimeout(() => sendVerificationEmail(email, uid), 3000);
+    }else{
+        var hash = TokenGenerator.generate();
+        databaseref.child(domain).child('users').child(uid).once('value').then(function(snapshot){  
+            var user = snapshot.val();
+            if(user){
+                databaseref.child(domain).child('users').child(uid).child('hash').set(hash);
+                
+                var verifyurl = WEBSITE + '/api/verify?domain=' + domain + '&uid=' + uid + '&token=' + '969d-dFN2m-2mN' + "&hash=" + hash;
+                var mailOptions = {
+                    from: '"Walla" <wallaapitesting@aol.com>', // sender address
+                    to: email, // list of receivers
+                    subject: 'Verify email', // Subject line
+                    html: emailverificationtemplate.replace(/verify-url-here/, verifyurl)
+                };
+
+            transporter.sendMail(mailOptions, function(error, info){
+                if(error){
+                    return console.log(error);
+                    res.status(REQUESTBAD).send(error);
+                }
+                console.log('Message sent: ' + info.response);
+                res.status(REQUESTSUCCESSFUL).send('email sent');
+            });
+                
+            }else{
+                res.status(REQUESTNOTFOUND).send('user not found');
+            }
+        });
+       
+    }
+}
+
+//setTimeout(() => sendVerificationEmail('mafuvadzeanesu@gmail.com', 'ZY59phLqRcNLPuEnTFDY0aym6MJ3', 'sandiego-*-edu'), 3000);
