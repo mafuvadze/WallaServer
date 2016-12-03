@@ -173,9 +173,9 @@ app.get('/api/min_version', function(req, res){
     incrementTokenCalls(token);
     
     switch(platform.toLowerCase()){
-        case 'android': res.send({'min_version': minversion.Android});
+        case 'android': res.status(REQUESTSUCCESSFUL).send({'min_version': minversion.Android});
             break;
-        case 'ios': res.send({'min_version': minversion.iOS});
+        case 'ios': res.status(REQUESTSUCCESSFUL).send({'min_version': minversion.iOS});
             break;
         default: res.status(REQUESTBAD).send("invalid parameters");
     }
@@ -246,7 +246,7 @@ app.get('/api/attendees', function(req, res){
         return;
     }
     
-    var event = req.query.key;
+    var event = req.query.event;
     if(!event){
          res.status(REQUESTBAD).send("invalid parameters: no event key");
         return;
@@ -254,13 +254,9 @@ app.get('/api/attendees', function(req, res){
     
     databaseref.child(school).child('attendees').child(event).once('value')
         .then(function(snapshot){
-            var list = [];
             var att = snapshot.val();
-            for(uid in att){
-                list.push(uid);
-            }
-        
-            res.status(REQUESTSUCCESSFUL).send(list);
+            
+            res.status(REQUESTSUCCESSFUL).send(att);
               
         }).catch(error => console.log(error));
     
