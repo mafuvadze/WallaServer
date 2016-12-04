@@ -27,7 +27,7 @@ const LEVEL5 = 16; //verify
 
 const MAXFLAGS = 2;
 
-const FLAGREPORTEMAIL = 'hollawalladuke@gmail.com';
+const FLAGREPORTEMAIL = 'mafuvadzeanesu@gmail.com' //'hollawalladuke@gmail.com';
 const WEBSITE = 'http://localhost:8080';
 
 
@@ -311,7 +311,7 @@ app.get('/api/user_info', function(req, res){
 
 });
 
-app.post('/api/generate_token', function(req, res){
+app.post('/api/request_token', function(req, res){
     var token = req.query.token;
     
     var auth = authenticateToken(token);
@@ -339,10 +339,11 @@ app.post('/api/generate_token', function(req, res){
     var a = req.query.a;
     var v = req.query.v;
     
-    if(!r || !w || !d || !a || !v){ 
-        res.status(REQUESTBAD).send("invalid parameters");
-        return;
-    }
+    if(!r) r = 0;
+    if(!w) w = 0;
+    if(!d) d = 0;
+    if(!a) a = 0;
+    if(!v) v = 0;
     
     var auth = 0;
     auth = r == 0 ? auth : auth | LEVEL1;
@@ -448,17 +449,13 @@ app.post('/api/report_post', function(req, res){
     }
     
     var uid = req.query.uid;
-    if(!uid){
-        res.status(REQUESTBAD).send("invalid parameters: no uid");
-        return;
-    }
     
     findPostToReport(uid, event, school, res);
 
 });
 
 
-app.get('/api/request_verification', function(req, res){
+app.post('/api/request_verification', function(req, res){
     var token = req.query.token;
     
     var auth = authenticateToken(token);
@@ -569,7 +566,8 @@ function findPostToReport(uid, key, domain, res){
             var post = snapshot.val();
             if(post){
                 if(!post.reporters[uid]){
-                    post.reporters[uid] = new Date().getTime() / 1000;
+                    if(uid)
+                        post.reporters[uid] = new Date().getTime() / 1000;
                     flagged.child(key).set(post);
                     incrementFlags(key, domain, res);
                     
@@ -702,6 +700,10 @@ function sendTokenViaEmail(token, email, name, auth){
     if(auth.indexOf('delete') >= 0) permissions += '<li>' + ' <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; Margin-bottom: 5px;">Delete</p>' + '</li>';
     if(auth.indexOf('admin') >= 0) permissions += '<li>' + ' <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; Margin-bottom: 5px;">Admin</p>' + '</li>';
     if(auth.indexOf('verify') >= 0) permissions += '<li>' + ' <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; Margin-bottom: 5px;">Verify</p>' + '</li>';
+    
+    if(permissions == ''){
+        permissions = 'none';
+    }
     
     var mailOptions = {
         from: '"Walla API" <wallaapitesting@aol.com>', // sender address
