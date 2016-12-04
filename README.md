@@ -1,15 +1,16 @@
 Walla API Documentation
 ==============
 
-**Title** : Get the domains supported by Walla
+## Get the domains supported by Walla
 
-**Sample URL** : /api/domains?token=123456789
+- **Sample URL** : /api/domains?token=123456789
 
-**Method** : GET
+- **Method** : GET
 
-**URL Params** : token=[authentication key]
+- **URL Params** : token=[authentication key]
 
-**Response Codes**: Success (200 OK), Bad Request (400), Unauthorized (401)
+- **Response Codes**: Success (200 OK), Bad Request (400), Unauthorized (401)
+
 
 
 
@@ -25,6 +26,7 @@ Walla API Documentation
 
 
 
+
 **Title** : Get the current active activities
 
 **Sample URL** : /api/activities?token=123456789&domain=sandiego-*-edu
@@ -32,7 +34,6 @@ Walla API Documentation
 **Method** : GET
 
 **URL Params** : token=[authentication key], domain=[school that will be used to filter the activities]
-
 
 **Response Codes**: Success (200 OK), Bad Request (400), Unauthorized (401)
 
