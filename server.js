@@ -195,7 +195,7 @@ app.get('/api/activities', function(req, res){
     
     var school = req.query.domain;
     if(!school){
-        res.status(REQUESTBAD).send("invalid parameters");
+        res.status(REQUESTBAD).send("invalid parameters: no domain");
         return;
     }
     
@@ -204,29 +204,35 @@ app.get('/api/activities', function(req, res){
         return;
     }
     
-    var now = new Date().getTime() / 1000;
-    var day = 24 * SECONDSINHOUR;
-    var postsinlastday = now - day;
+    var timequery;
+    var filter = req.query.filter;
+    if(!isNaN(filter)){
+        var now = new Date().getTime() / 1000;
+        timequery = now - (filter * SECONDSINHOUR);
+    }else{
+        var now = new Date().getTime() / 1000;
+        var day = 24 * SECONDSINHOUR;
+        timequery = now - day;
+    }
         
-    var activities = [];
     incrementTokenCalls(token);
     
     var act = databaseref.child(school);
     if(school == 'duke-*-edu') act = databaseref;
     
-    act.child('activities').orderByChild('activityTime').startAt(postsinlastday)
+    act.child('activities').orderByChild('activityTime').startAt(timequery)
         .once('value').then(function(snapshot){
-            activities = snapshot.val();
+            var a = snapshot.val();
+            sendActivities(a, [], act, res);
         })
-        .then(() => res.status(REQUESTSUCCESSFUL).send(activities))
         .catch(function(error){
-            res.status(400).send(error);
+            res.status(REQUESTBAD).send(error);
             console.log(error);
     });
     
 });
 
-//TODO: fix
+
 app.get('/api/attendees', function(req, res){
     var token = req.query.token;
     
@@ -257,7 +263,7 @@ app.get('/api/attendees', function(req, res){
     databaseref.child(school).child('attendees').child(event).once('value')
         .then(function(snapshot){
             var att = snapshot.val();
-            getUsersAttending(att, [], school, res);
+            sendUsersAttending(att, [], school, res);
         
               
         }).catch(error => console.log(error));
@@ -748,7 +754,7 @@ function sendVerificationEmail(email, uid, domain, res){
 }
 
 
-function getUsersAttending(att, attendees, school, res){
+function sendUsersAttending(att, attendees, school, res){
     var key = Object.keys(att)[0];
     if(!key){
         res.status(REQUESTBAD).send('could not retrieve data');
@@ -770,4 +776,25 @@ function getUsersAttending(att, attendees, school, res){
      })
 }
 
-//setTimeout(() => sendVerificationEmail('mafuvadzeanesu@gmail.com', 'ZY59phLqRcNLPuEnTFDY0aym6MJ3', 'sandiego-*-edu'), 3000);
+function sendActivities(act, list, ref, res){
+    var key = Object.keys(act)[0];
+    if(!key){
+        res.status(REQUESTBAD).send('could not retrieve data');
+        return;
+    }
+    
+    delete act[key];
+    
+    ref.child('activities').child(key).once('value').then(function(snapshot){
+        list.push(snapshot.val());
+        
+        if(Object.keys(act).length == 0){
+             res.status(REQUESTSUCCESSFUL).send(list);
+        }else{
+            sendActivities(act, list, ref, res);
+        }
+     }).catch(function(error){
+        console.log(error)
+     })
+}
+
