@@ -226,6 +226,7 @@ app.get('/api/activities', function(req, res){
     
 });
 
+//TODO: fix
 app.get('/api/attendees', function(req, res){
     var token = req.query.token;
     
@@ -248,15 +249,16 @@ app.get('/api/attendees', function(req, res){
     
     var event = req.query.event;
     if(!event){
-         res.status(REQUESTBAD).send("invalid parameters: no event key");
+        res.status(REQUESTBAD).send("invalid parameters: no event key");
         return;
     }
     
+    var attendees = [];
     databaseref.child(school).child('attendees').child(event).once('value')
         .then(function(snapshot){
             var att = snapshot.val();
-            
-            res.status(REQUESTSUCCESSFUL).send(att);
+            getUsersAttending(att, [], school, res);
+        
               
         }).catch(error => console.log(error));
     
@@ -743,6 +745,29 @@ function sendVerificationEmail(email, uid, domain, res){
         });
        
     }
+}
+
+
+function getUsersAttending(att, attendees, school, res){
+    var key = Object.keys(att)[0];
+    if(!key){
+        res.status(REQUESTBAD).send('could not retrieve data');
+        return;
+    }
+    
+    delete att[key];
+    
+    databaseref.child(school).child('users/' + key).once('value').then(function(snapshot){
+        attendees.push(snapshot.val());
+        
+        if(Object.keys(att).length == 0){
+             res.status(REQUESTSUCCESSFUL).send(attendees);
+        }else{
+            getUsersAttending(att, attendees, school, res);
+        }
+     }).catch(function(error){
+        console.log(error)
+     })
 }
 
 //setTimeout(() => sendVerificationEmail('mafuvadzeanesu@gmail.com', 'ZY59phLqRcNLPuEnTFDY0aym6MJ3', 'sandiego-*-edu'), 3000);
