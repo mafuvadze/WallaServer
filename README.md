@@ -31,15 +31,15 @@ Walla API Documentation
 
 
 ### Permission definitions
-- **R** : Required the auth token to have read access
+- **R** : Requires the auth token to have read access
 
-- **W** : Required the auth token to have write access
+- **W** : Requires the auth token to have write access
 
-- **D** : Required the auth token to have delete access
+- **D** : Requires the auth token to have delete access
 
-- **A** : Required the auth token to have admin access
+- **A** : Requires the auth token to have admin access
 
-- **V** : Required the auth token to have verification access
+- **V** : Requires the auth token to have verification access
 
 
 
@@ -52,7 +52,7 @@ Walla API Documentation
 
 - **URL Params** : [token]
 
-- **Sample URL** : > /api/domains?token=123456789
+- **Sample URL** : /api/domains?token=123456789
 
 - **Response Codes**: Success (200 OK), Bad Request (400), Unauthorized (401)
 
@@ -67,7 +67,7 @@ Walla API Documentation
 
 - **URL Params** : [token, plaform]
 
-- **Sample URL** : > /api/min_version?token=123456789&platform=android
+- **Sample URL** : /api/min_version?token=123456789&platform=android
 
 - **Response Codes**: Success (200 OK), Bad Request (400), Unauthorized (401)
 
