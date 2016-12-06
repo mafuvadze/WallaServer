@@ -3,7 +3,7 @@ var firebase = require('firebase'); //npm install firebase --save
 var admin = require('firebase-admin'); //npm install firebase-admin --save
 var TokenGenerator = require( 'token-generator' )({
         salt: 'the key to success is to be successful, but only sometimes',
-        timestampMap: 'N72md4XaF8', // 10 chars array for obfuscation proposes 
+        timestampMap: 'N72md4XaF8', // 10 chars array for obfuscation proposes
 });
 var nodemailer = require('nodemailer'); //npm install nodemailer --save
 var fs = require('fs');
@@ -34,7 +34,7 @@ const WEBSITE = 'http://localhost:8080';
 //***************INITIALIZATION*************//
 
 var app = express();
-  
+
 //create a listener for the server
 app.listen(port, function(){
     console.log('listening on port ' + port);
@@ -53,7 +53,7 @@ var transporter = nodemailer.createTransport({
 var domains = {};
 var minversion = {};
 
-var readpriv = []; 
+var readpriv = [];
 var writepriv = [];
 var deletepriv = [];
 var adminpriv = [];
@@ -84,19 +84,19 @@ var databaseref = database.ref();
 
 function authenticateToken(token){
     var auth;
-    
+
     if(!token){
         auth = 0;
     }else{
         auth = getAuth(token);
     }
-    
+
     return {'read': auth & LEVEL1,
         'write': auth & LEVEL2,
         'delete': auth & LEVEL3,
         'admin': auth & LEVEL4,
         'verify': auth & LEVEL5
-    };   
+    };
 }
 
 
@@ -113,13 +113,13 @@ mv.on('value', snapshot => minversion = snapshot.val());
 const at = databaseref.child('api');
 at.on('value', snapshot => {
     var auth = snapshot.val();
-    
+
     readpriv = [];
     writepriv = [];
     deletepriv = [];
     adminpriv = [];
     verifypriv = [];
-    
+
     for(key in auth){
         if(auth[key].auth & LEVEL1) readpriv.push(key);
         if(auth[key].auth & LEVEL2) writepriv.push(key);
@@ -141,37 +141,37 @@ akt.on('value', snapshot => apikeytemplate = snapshot.val().template);
 //0001 - requires read rights
 app.get('/api/domains', function(req, res){
     var token = req.query.token;
-    
+
     var auth = authenticateToken(token);
     if(!auth.read && !auth.admin){
          res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
         return;
     }
-    
+
     res.send(domains)
-    
+
 });
 
 //.../api/min_version?platform=android
 //0001 - requires read rights
 app.get('/api/min_version', function(req, res){
     var token = req.query.token;
-    
+
     var auth = authenticateToken(token);
     if(!auth.read && !auth.admin){
-         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
         return;
     }
-    
+
     var platform = req.query.platform;
-    
+
     if(platform == undefined){
         res.status(REQUESTBAD).send("invalid parameters")
         return;
     }
-    
+
     incrementTokenCalls(token);
-    
+
     switch(platform.toLowerCase()){
         case 'android': res.status(REQUESTSUCCESSFUL).send({'min_version': minversion.Android});
             break;
@@ -179,31 +179,31 @@ app.get('/api/min_version', function(req, res){
             break;
         default: res.status(REQUESTBAD).send("invalid parameters");
     }
-        
+
 });
 
-//get activities posted 
+//get activities posted
 //0001 - requires read rights
 app.get('/api/activities', function(req, res){
     var token = req.query.token;
-    
+
     var auth = authenticateToken(token);
     if(!auth.read && !auth.admin){
          res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
         return;
     }
-    
+
     var school = req.query.domain;
     if(!school){
         res.status(REQUESTBAD).send("invalid parameters: no domain");
         return;
     }
-    
+
     if(!domainAllowed(school)){
         res.status(REQUESTBAD).send("domain '" + school + "' is not allowed");
         return;
     }
-    
+
     var timequery;
     var filter = req.query.filter;
     if(!isNaN(filter)){
@@ -214,12 +214,12 @@ app.get('/api/activities', function(req, res){
         var day = 24 * SECONDSINHOUR;
         timequery = now - day;
     }
-        
+
     incrementTokenCalls(token);
-    
+
     var act = databaseref.child(school);
     if(school == 'duke-*-edu') act = databaseref;
-    
+
     act.child('activities').orderByChild('activityTime').startAt(timequery)
         .once('value').then(function(snapshot){
             var a = snapshot.val();
@@ -229,78 +229,78 @@ app.get('/api/activities', function(req, res){
             res.status(REQUESTBAD).send(error);
             console.log(error);
     });
-    
+
 });
 
 
 app.get('/api/attendees', function(req, res){
     var token = req.query.token;
-    
+
     var auth = authenticateToken(token);
     if(!auth.read && !auth.admin){
          res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
         return;
     }
-    
+
     var school = req.query.domain;
     if(!school){
         res.status(REQUESTBAD).send("invalid parameters: no domain");
         return;
     }
-    
+
     if(!domainAllowed(school)){
         res.status(REQUESTBAD).send("domain '" + school + "' is not allowed");
         return;
     }
-    
+
     var event = req.query.event;
     if(!event){
         res.status(REQUESTBAD).send("invalid parameters: no event key");
         return;
     }
-    
+
     var attendees = [];
     databaseref.child(school).child('attendees').child(event).once('value')
         .then(function(snapshot){
             var att = snapshot.val();
             sendUsersAttending(att, [], school, res);
-        
-              
+
+
         }).catch(error => console.log(error));
-    
+
 });
 
 //get user information from a uid.  ex: .../api/user_info?uid=udfan48thbg84t48
-//0001 - requires read rights 
+//0001 - requires read rights
 app.get('/api/user_info', function(req, res){
     var token = req.query.token;
-    
+
     var auth = authenticateToken(token);
     if(!auth.read && !auth.admin){
          res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
         return;
     }
-    
+
     var uid = req.query.uid;
     if(!uid){
         res.status(REQUESTBAD).send("invalid parameters: no uid");
         return;
     }
-    
+
     var school = req.query.domain;
     if(!school){
         res.status(REQUESTBAD).send("invalid parameters: no domain");
         return;
     }
-    
+
     if(!domainAllowed(school)){
         res.status(REQUESTBAD).send("domain '" + school + "' is not allowed");
         return;
     }
-    
+
     var user = {};
     incrementTokenCalls(token);
-    
+
     databaseref.child(school).child('users/' + uid).once('value').then(function(snapshot){
         user = snapshot.val();
         if(!user || user == {}) res.status(REQUESTNOTFOUND).send("user not found");
@@ -313,104 +313,104 @@ app.get('/api/user_info', function(req, res){
 
 app.post('/api/request_token', function(req, res){
     var token = req.query.token;
-    
+
     var auth = authenticateToken(token);
     if(!auth.admin){
          res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
         return;
     }
-    
+
     var owner = req.query.owner;
     var email = req.query.email;
-    
+
     if(!owner){
         res.status(REQUESTBAD).send("invalid parameters: no owner");
         return;
     }
-    
+
     if(!email){
         res.status(REQUESTBAD).send("invalid parameters: no email");
         return;
     }
-    
+
     var r = req.query.r;
     var w = req.query.w;
     var d = req.query.d;
     var a = req.query.a;
     var v = req.query.v;
-    
+
     if(!r) r = 0;
     if(!w) w = 0;
     if(!d) d = 0;
     if(!a) a = 0;
     if(!v) v = 0;
-    
+
     var auth = 0;
     auth = r == 0 ? auth : auth | LEVEL1;
     auth = w == 0 ? auth : auth | LEVEL2;
     auth = d == 0 ? auth : auth | LEVEL3;
     auth = a == 0 ? auth : auth | LEVEL4;
     auth = v == 0 ? auth : auth | LEVEL5;
-    
+
     incrementTokenCalls(token);
-    
+
     var token = TokenGenerator.generate();
-    
+
     var authobj = {};
     authobj[token] = {owner: owner,
                       email: email,
                       auth: auth,
                       calls: 0,
                      };
-    
+
     databaseref.child('api').update(authobj);
-    
+
     var permissions = [];
     if(auth & LEVEL1) permissions.push('read');
     if(auth & LEVEL2) permissions.push('write');
     if(auth & LEVEL3) permissions.push('delete');
     if(auth & LEVEL4) permissions.push('admin');
     if(auth & LEVEL5) permissions.push('verify');
-        
-    
+
+
     sendTokenViaEmail(token, email, owner, permissions);
     res.status(REQUESTSUCCESSFUL).send("email sent");
-    
+
 });
 
 app.get('/api/is_attending', function(req, res){
     var token = req.query.token;
-    
+
     var auth = authenticateToken(token);
     if(!auth.admin && !auth.read){
          res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
         return;
     }
-    
+
     var uid = req.query.uid;
     if(!uid){
         res.status(REQUESTBAD).send("invalid parameters: no uid");
         return;
     }
-    
+
     var school = req.query.domain;
     if(!school){
         res.status(REQUESTBAD).send("invalid parameters: no domain");
         return;
     }
-    
+
     var event = req.query.event;
     if(!event){
         res.status(REQUESTBAD).send("invalid parameters: no event key");
         return;
     }
-    
+
      databaseref.child(school).child('attendees').child(event).once('value')
         .then(function(snapshot){
             var att = snapshot.val();
             var ret = {};
             ret.event = event;
-         
+
             for(user in att){
                 if(uid == user){
                     ret.attending = true;
@@ -418,38 +418,38 @@ app.get('/api/is_attending', function(req, res){
                     return;
                 }
             }
-        
+
             ret.attending = false;
             res.status(REQUESTSUCCESSFUL).send(ret);
-              
+
         }).catch(error => res.status(REQUESTBAD).send('error retrieving data'));
-    
+
 });
 
 app.post('/api/report_post', function(req, res){
     var token = req.query.token;
-    
+
     var auth = authenticateToken(token);
     if(!auth.admin && !auth.write){
          res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
         return;
     }
-    
+
       var school = req.query.domain;
     if(!school){
         res.status(REQUESTBAD).send("invalid parameters: no domain");
         return;
     }
-    
-    
+
+
     var event = req.query.event;
     if(!event){
         res.status(REQUESTBAD).send("invalid parameters: no event key");
         return;
     }
-    
+
     var uid = req.query.uid;
-    
+
     findPostToReport(uid, event, school, res);
 
 });
@@ -457,63 +457,63 @@ app.post('/api/report_post', function(req, res){
 
 app.post('/api/request_verification', function(req, res){
     var token = req.query.token;
-    
+
     var auth = authenticateToken(token);
     if(!auth.admin && !auth.write){
          res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
         return;
     }
-    
+
     var school = req.query.domain;
     if(!school){
         res.status(REQUESTBAD).send("invalid parameters: no domain");
         return;
     }
-    
-    
+
+
     var email = req.query.email;
     if(!email){
         res.status(REQUESTBAD).send("invalid parameters: no email");
         return;
     }
-    
+
     var uid = req.query.uid;
     if(!uid){
         res.status(REQUESTBAD).send("invalid parameters: no uid");
         return;
     }
-    
+
     sendVerificationEmail(email, uid, school, res);
 });
 
 app.get('/api/verify', function(req, res){
     var token = req.query.token;
-    
+
     var auth = authenticateToken(token);
     if(!auth.verify){
          res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
         return;
     }
-    
+
       var school = req.query.domain;
     if(!school){
         res.status(REQUESTBAD).send("invalid parameters: no domain");
         return;
     }
-    
+
     var uid = req.query.uid;
     if(!uid){
         res.status(REQUESTBAD).send("invalid parameters: no uid");
         return;
     }
-    
+
     var hash = req.query.hash;
     if(!hash){
         res.status(REQUESTBAD).send("invalid parameters: no hash");
         return;
     }
-   verifyUser(school, uid, hash, res); 
-    
+   verifyUser(school, uid, hash, res);
+
 });
 
 app.get('/welcome', function(req, res){
@@ -532,10 +532,10 @@ function domainAllowed(domain){
     for(key in domains){
         if(key == domain) return true;
     }
-    
+
     return false;
 }
-    
+
 function verifyUser(school, uid, hash, res){
     databaseref.child(school).child('users').child(uid).once('value').then(function(snapshot){
         var user = snapshot.val();
@@ -560,7 +560,7 @@ function verifyUser(school, uid, hash, res){
 
 function findPostToReport(uid, key, domain, res){
     var flagged = databaseref.child(domain).child('flagged');
-    
+
     flagged.child(key).once('value')
         .then(function(snapshot){
             var post = snapshot.val();
@@ -570,7 +570,7 @@ function findPostToReport(uid, key, domain, res){
                         post.reporters[uid] = new Date().getTime() / 1000;
                     flagged.child(key).set(post);
                     incrementFlags(key, domain, res);
-                    
+
                 }else{
                     console.log('already flagged');
                     res.status(REQUESTDUPLICATE).send('already flagged');
@@ -584,7 +584,7 @@ function findPostToReport(uid, key, domain, res){
                         [uid]: (new Date().getTime() / 1000)
                     }
                 }
-                
+
                 flagged.update(fl);
                 res.status(REQUESTSUCCESSFUL).send("post reported");
             }
@@ -601,7 +601,7 @@ function incrementFlags(key, domain, res){
         }else{
             snapshot = 1;
         }
-        
+
         res.status(REQUESTSUCCESSFUL).send("post reported");
         return snapshot;
     });
@@ -610,16 +610,16 @@ function incrementFlags(key, domain, res){
 function notifyAdminOfFlag(key, flags, domain){
     databaseref.child(domain).child('activities').child(key).once('value')
         .then(function(snapshot){
-            var post = snapshot.val();        
+            var post = snapshot.val();
             var location = post.location;
             var description = post.description;
             var uid = post.uid;
-            
+
             databaseref.child(domain).child('users').child(uid).once('value')
                 .then(function(snapshot){
                     var user = snapshot.val();
                     var name =  user.name;
-                
+
                     sendFlagEmail(name, key, flags, location, description, domain);
                  });
          });
@@ -632,14 +632,14 @@ function sendFlagEmail(name, key, flag, location, description, domain){
         to: FLAGREPORTEMAIL, // list of receivers
         subject: 'Flagged Post', // Subject line
         text: 'Hello', // plaintext body
-        html: '<b style="font-size:18px">' + 'A post by ' + name + ' was flagged by ' + flag + ' people' + '</b><br><br>' 
+        html: '<b style="font-size:18px">' + 'A post by ' + name + ' was flagged by ' + flag + ' people' + '</b><br><br>'
                 + '<span style="font-size:15px">Post Key: ' + key + '</span><br><br><br>'
                 + '<span style="font-size:15px">Creator: ' + name + '</span><br><br><br>'
                 + '<span style="font-size:15px">Description: ' + description + '</span><br><br><br>'
                 + '<span style="font-size:15px">School: ' + school + '</span><br><br><br>'
                 + '<span style="font-size:15px">Location: ' + location + '</span><br>'
     };
-    
+
     transporter.sendMail(mailOptions, function(error, info){
         if(error){
             return console.log(error);
@@ -653,29 +653,29 @@ function getAuth(token){
     if(readpriv.indexOf(token) >= 0){
         auth = auth | LEVEL1;
     }
-    
+
     if(writepriv.indexOf(token) >= 0){
         auth = auth | LEVEL2;
     }
-    
+
     if(deletepriv.indexOf(token) >= 0){
         auth = auth | LEVEL3;
     }
-    
+
     if(adminpriv.indexOf(token) >= 0){
         auth = auth | LEVEL4;
     }
-    
+
      if(verifypriv.indexOf(token) >= 0){
         auth = auth | LEVEL5;
     }
-    
+
     return auth;
 }
 
 function getUserInfo(uid, domain){
     var user = {};
-    
+
     databaseref.child(domain).child('users/' + uid).once('value').then(function(snapshot){
         user = snapshot.val();
         return user;
@@ -700,18 +700,18 @@ function sendTokenViaEmail(token, email, name, auth){
     if(auth.indexOf('delete') >= 0) permissions += '<li>' + ' <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; Margin-bottom: 5px;">Delete</p>' + '</li>';
     if(auth.indexOf('admin') >= 0) permissions += '<li>' + ' <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; Margin-bottom: 5px;">Admin</p>' + '</li>';
     if(auth.indexOf('verify') >= 0) permissions += '<li>' + ' <p style="font-family: sans-serif; font-size: 14px; font-weight: normal; margin: 0; Margin-bottom: 5px;">Verify</p>' + '</li>';
-    
+
     if(permissions == ''){
         permissions = 'none';
     }
-    
+
     var mailOptions = {
         from: '"Walla API" <wallaapitesting@aol.com>', // sender address
         to: email, // list of receivers
         subject: 'Walla API', // Subject line
         html: apikeytemplate.replace(/permissions-go-here/, permissions).replace(/name-goes-here/, name).replace(/token-goes-here/, token)
     };
-    
+
     transporter.sendMail(mailOptions, function(error, info){
         if(error){
             return console.log(error);
@@ -725,11 +725,11 @@ function sendVerificationEmail(email, uid, domain, res){
         setTimeout(() => sendVerificationEmail(email, uid), 3000);
     }else{
         var hash = TokenGenerator.generate();
-        databaseref.child(domain).child('users').child(uid).once('value').then(function(snapshot){  
+        databaseref.child(domain).child('users').child(uid).once('value').then(function(snapshot){
             var user = snapshot.val();
             if(user){
                 databaseref.child(domain).child('users').child(uid).child('hash').set(hash);
-                
+
                 var verifyurl = WEBSITE + '/api/verify?domain=' + domain + '&uid=' + uid + '&token=' + '969d-dFN2m-2mN' + "&hash=" + hash;
                 var mailOptions = {
                     from: '"Walla" <wallaapitesting@aol.com>', // sender address
@@ -746,12 +746,12 @@ function sendVerificationEmail(email, uid, domain, res){
                 console.log('Message sent: ' + info.response);
                 res.status(REQUESTSUCCESSFUL).send('email sent');
             });
-                
+
             }else{
                 res.status(REQUESTNOTFOUND).send('user not found');
             }
         });
-       
+
     }
 }
 
@@ -762,12 +762,12 @@ function sendUsersAttending(att, attendees, school, res){
         res.status(REQUESTBAD).send('could not retrieve data');
         return;
     }
-    
+
     delete att[key];
-    
+
     databaseref.child(school).child('users/' + key).once('value').then(function(snapshot){
         attendees.push(snapshot.val());
-        
+
         if(Object.keys(att).length == 0){
              res.status(REQUESTSUCCESSFUL).send(attendees);
         }else{
@@ -784,12 +784,12 @@ function sendActivities(act, list, ref, res){
         res.status(REQUESTBAD).send('could not retrieve data');
         return;
     }
-    
+
     delete act[key];
-    
+
     ref.child('activities').child(key).once('value').then(function(snapshot){
         list.push(snapshot.val());
-        
+
         if(Object.keys(act).length == 0){
              res.status(REQUESTSUCCESSFUL).send(list);
         }else{
@@ -799,4 +799,3 @@ function sendActivities(act, list, ref, res){
         console.log(error)
      })
 }
-
