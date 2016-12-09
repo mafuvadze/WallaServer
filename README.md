@@ -194,6 +194,31 @@ Walla API Documentation
 
 
 
+## Create activity
+
+
+
+
+## Notifications
+
+
+
+
+## Groups
+
+
+
+
+## Suggesting Groups
+
+
+
+
+## Suggesting Friends
+
+
+
+
 ## Display welcome message (after email verification)
 
 - **Permissions** : none
