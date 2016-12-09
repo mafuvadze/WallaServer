@@ -6,7 +6,7 @@ Walla API Documentation
 
 - **platform** : Operating platform the caller is requesting information on (e.g. ios, android)
 
-- **domain** : The school or domain the user is requesting information on (e.g. sandiego-*-edu, duke-*-edu) 
+- **domain** : The school or domain the user is requesting information on (e.g. sandiego-\*-edu, duke-\*-edu)
 
 - **event** : The unique identifier for an event (e.g. -KVgTb7KDUYnsAho_bcK)
 
@@ -179,21 +179,6 @@ Walla API Documentation
 
 
 
-## Send an email to verify email address
-
-- **Permissions** : W || A
-
-- **Method** : POST
-
-- **URL Params** : [token, domain, uid, email]
-
-- **Sample URL** : /api/request_verification?token=123456789&domain=sandiego-*-edu&email=johnsmith@duke.edu&uid=84ubr73i9
-
-- **Response Codes**: Success (200 OK), Bad Request (400), Unauthorized (401)
-
-
-
-
 ## Verify an email address
 
 - **Permissions** : V
@@ -220,4 +205,3 @@ Walla API Documentation
 - **Sample URL** : /welcome
 
 - **Response Codes**: Success (200 OK)
-
