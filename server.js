@@ -35,9 +35,16 @@ const WEBSITE = 'http://localhost:8080';
 
 var app = express();
 
-//create a listener for the server
-app.listen(port, function(){
-    console.log('listening on port ' + process.env.PORT || port);
+app.set('port', (process.env.PORT || 8080));
+
+app.use(express.static(__dirname + '/public'));
+
+// views is directory for all template files
+app.set('views', __dirname + '/views');
+app.set('view engine', 'ejs');
+
+app.listen(app.get('port'), function() {
+  console.log('Node app is running on port', app.get('port'));
 });
 
 //setup for email
