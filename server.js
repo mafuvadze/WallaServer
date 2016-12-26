@@ -37,7 +37,7 @@ var app = express();
 
 //create a listener for the server
 app.listen(port, function(){
-    console.log('listening on port ' + port);
+    console.log('listening on port ' + process.env.PORT || port);
 });
 
 //setup for email
