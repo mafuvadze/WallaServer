@@ -419,7 +419,7 @@ app.get('/api/is_verified', function(req, res){
         if(!user || user == {}) res.status(REQUESTNOTFOUND).send("user not found");
         else res.status(REQUESTSUCCESSFUL).send({"verified" : user[verfied]});
     }).catch(function(error){
-        return;
+        res.status(REQUESTNOTFOUND).send("user not found")
     })
 
 });
