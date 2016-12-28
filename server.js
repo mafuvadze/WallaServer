@@ -417,11 +417,12 @@ app.get('/api/is_verified', function(req, res){
     databaseref.child(school).child('users/' + uid).once('value').then(function(snapshot){
         user = snapshot.val();
         if(!user || user == {}) res.status(REQUESTNOTFOUND).send("user not found");
-        else res.status(REQUESTSUCCESSFUL).send({"verified" : user[verified]});
+        else res.status(REQUESTSUCCESSFUL).send({"verified" : user[verfied]});
     }).catch(function(error){
         return;
     })
-}
+
+});
 
 app.get('/api/is_attending', function(req, res){
     var token = req.query.token;
