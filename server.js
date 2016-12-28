@@ -28,7 +28,7 @@ const LEVEL5 = 16; //verify
 const MAXFLAGS = 2;
 
 const FLAGREPORTEMAIL = 'mafuvadzeanesu@gmail.com' //'hollawalladuke@gmail.com';
-const WEBSITE = 'http://localhost:8080';
+const WEBSITE = 'https://wallaserver.herokuapp.com';
 
 
 //***************INITIALIZATION*************//
