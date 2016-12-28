@@ -774,11 +774,11 @@ function sendUsersAttending(att, attendees, school, res){
 
     databaseref.child(school).child('users/' + key).once('value').then(function(snapshot){
         attendees.push(snapshot.val());
-
+        
         if(Object.keys(att).length == 0){
              res.status(REQUESTSUCCESSFUL).send(attendees);
         }else{
-            getUsersAttending(att, attendees, school, res);
+            sendUsersAttending(att, attendees, school, res);
         }
      }).catch(function(error){
         console.log(error)
