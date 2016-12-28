@@ -385,6 +385,44 @@ app.post('/api/request_token', function(req, res){
 
 });
 
+app.get('/api/is_verified', function(req, res){
+    var token = req.query.token;
+
+    var auth = authenticateToken(token);
+    if(!auth.read && !auth.admin){
+         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
+        return;
+    }
+
+    var uid = req.query.uid;
+    if(!uid){
+        res.status(REQUESTBAD).send("invalid parameters: no uid");
+        return;
+    }
+
+    var school = req.query.domain;
+    if(!school){
+        res.status(REQUESTBAD).send("invalid parameters: no domain");
+        return;
+    }
+
+    if(!domainAllowed(school)){
+        res.status(REQUESTBAD).send("domain '" + school + "' is not allowed");
+        return;
+    }
+
+    var user = {};
+    incrementTokenCalls(token);
+
+    databaseref.child(school).child('users/' + uid).once('value').then(function(snapshot){
+        user = snapshot.val();
+        if(!user || user == {}) res.status(REQUESTNOTFOUND).send("user not found");
+        else res.status(REQUESTSUCCESSFUL).send({"verified" : user[verified]});
+    }).catch(function(error){
+        return;
+    })
+}
+
 app.get('/api/is_attending', function(req, res){
     var token = req.query.token;
 
@@ -460,7 +498,6 @@ app.post('/api/report_post', function(req, res){
     findPostToReport(uid, event, school, res);
 
 });
-
 
 app.post('/api/request_verification', function(req, res){
     var token = req.query.token;
