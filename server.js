@@ -230,7 +230,10 @@ app.get('/api/activities', function(req, res){
     act.child('activities').orderByChild('activityTime').startAt(timequery)
         .once('value').then(function(snapshot){
             var a = snapshot.val();
-            sendActivities(a, [], act, res);
+            if(a)
+                sendActivities(a, [], act, res);
+            else
+                res.status(REQUESTSUCCESSFUL).send({});
         })
         .catch(function(error){
             res.status(REQUESTBAD).send(error);
@@ -382,45 +385,6 @@ app.post('/api/request_token', function(req, res){
 
     sendTokenViaEmail(token, email, owner, permissions);
     res.status(REQUESTSUCCESSFUL).send("email sent");
-
-});
-
-app.get('/api/is_verified', function(req, res){
-    var token = req.query.token;
-
-    var auth = authenticateToken(token);
-    if(!auth.read && !auth.admin){
-         res.status(REQUESTFORBIDDEN).send("token could not be authenticated");
-        return;
-    }
-
-    var uid = req.query.uid;
-    if(!uid){
-        res.status(REQUESTBAD).send("invalid parameters: no uid");
-        return;
-    }
-
-    var school = req.query.domain;
-    if(!school){
-        res.status(REQUESTBAD).send("invalid parameters: no domain");
-        return;
-    }
-
-    if(!domainAllowed(school)){
-        res.status(REQUESTBAD).send("domain '" + school + "' is not allowed");
-        return;
-    }
-
-    var user = {};
-    incrementTokenCalls(token);
-
-    databaseref.child(school).child('users/' + uid).once('value').then(function(snapshot){
-        user = snapshot.val();
-        if(!user || user == {}) res.status(REQUESTNOTFOUND).send("user not found");
-        else res.status(REQUESTSUCCESSFUL).send({"verified" : user[verfied]});
-    }).catch(function(error){
-        res.status(REQUESTNOTFOUND).send("user not found")
-    })
 
 });
 
